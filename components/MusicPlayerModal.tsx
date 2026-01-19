@@ -4,9 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { getSongById, getAlbumById, getArtist } from '@/lib/data';
 import AnimatedAlbumCover from '@/components/AnimatedAlbumCover';
+import TwinklingStarsOverlay from '@/components/TwinklingStarsOverlay';
+import BlurAnimation from '@/components/BlurAnimation';
 
 interface MusicPlayerModalProps {
   songId: string | null;
+  isVisible: boolean;
   onClose: () => void;
   onSongChange?: (songId: string) => void;
 }
@@ -14,13 +17,12 @@ interface MusicPlayerModalProps {
 /**
  * Music Player Modal Component
  * 
- * A modal overlay that slides up from the bottom when opened
- * and slides down when closed. Renders the music player UI.
+ * A full-screen modal overlay that fades in when opened
+ * and fades out when closed. Renders the music player UI.
  */
-export default function MusicPlayerModal({ songId, onClose, onSongChange }: MusicPlayerModalProps) {
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
+export default function MusicPlayerModal({ songId, isVisible, onClose, onSongChange }: MusicPlayerModalProps) {
   const playerRef = useRef<HTMLDivElement>(null);
+  const specialOneBackgroundRef = useRef<HTMLDivElement>(null);
   
   // Audio playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,23 +35,15 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
 
   // Get song data
   const song = songId ? getSongById(songId) : null;
-  const album = song ? getAlbumById(song.albumId) : null;
 
-  // Trigger slide-up animation when songId changes (modal opens)
+  // Initialize song data when modal becomes visible
   useEffect(() => {
-    if (songId && song) {
-      setIsExiting(false);
-      setIsAnimating(false);
+    if (isVisible && song) {
       setDuration(song.duration);
       setCurrentTime(0);
       setIsPlaying(false);
-      
-      // Small delay to ensure smooth animation
-      requestAnimationFrame(() => {
-        setIsAnimating(true);
-      });
     }
-  }, [songId, song]);
+  }, [isVisible, song]);
 
   // Initialize audio element
   useEffect(() => {
@@ -116,21 +110,12 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
   const remainingTime = Math.max(0, duration - currentTime);
 
-  // Handle dismiss - slide down animation then close
+  // Handle dismiss - close the modal
   const handleDismiss = () => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    // Set exiting state to keep backdrop visible during animation
-    setIsExiting(true);
-    // Trigger slide-down animation
-    setIsAnimating(false);
-    
-    // Wait for animation to complete before closing modal
-    setTimeout(() => {
-      setIsExiting(false);
-      onClose();
-    }, 500); // Match animation duration
+    onClose();
   };
 
   // Toggle UI visibility
@@ -138,14 +123,20 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
     setIsUIVisible(!isUIVisible);
   };
 
+  // Get the song to display
+  const displaySong = song;
+  const displayAlbum = displaySong ? getAlbumById(displaySong.albumId) : null;
+  const finalSong = displaySong;
+  const finalAlbum = displayAlbum;
+
   // Get list of songs from artist's popular songs
   const artist = getArtist();
   const songList = artist.popularSongs;
-  const currentIndex = song ? songList.findIndex(s => s.id === song.id) : -1;
+  const currentIndex = finalSong ? songList.findIndex(s => s.id === finalSong.id) : -1;
 
   // Handle previous song
   const handlePrevious = () => {
-    if (currentIndex > 0 && song) {
+    if (currentIndex > 0 && finalSong) {
       const previousSong = songList[currentIndex - 1];
       // Stop current audio
       if (audioRef.current) {
@@ -162,7 +153,7 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
 
   // Handle next song
   const handleNext = () => {
-    if (currentIndex < songList.length - 1 && song) {
+    if (currentIndex < songList.length - 1 && finalSong) {
       const nextSong = songList[currentIndex + 1];
       // Stop current audio
       if (audioRef.current) {
@@ -178,52 +169,93 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
   };
 
   // Don't render if no song is selected
-  if (!songId || !song) {
+  if (!songId || !finalSong) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50" style={{ willChange: 'transform', pointerEvents: 'auto' }}>
-      {/* Backdrop overlay */}
+    <div 
+      className={`fixed inset-0 z-50 transition-opacity duration-300 ease-out ${
+        isVisible ? 'opacity-100' : 'opacity-0'
+      }`}
+      style={{ 
+        pointerEvents: isVisible ? 'auto' : 'none',
+      }}
+    >
+      {/* Backdrop overlay - fades in/out with modal visibility */}
       <div 
-        className={`fixed inset-0 bg-black transition-opacity duration-500 ease-out ${
-          isAnimating ? 'opacity-50' : isExiting ? 'opacity-50' : 'opacity-0'
+        className={`fixed inset-0 bg-black transition-opacity duration-300 ease-out ${
+          isVisible ? 'opacity-50' : 'opacity-0'
         }`}
         onClick={handleDismiss}
-        style={{
-          pointerEvents: isAnimating || isExiting ? 'auto' : 'none',
-          willChange: 'opacity',
-          transition: 'opacity 500ms ease-out',
-        }}
       />
       
-      {/* Player modal - slides up from bottom */}
+      {/* Player modal - full screen with fade animation */}
       <div 
         ref={playerRef}
-        className={`fixed inset-0 bg-[#111] z-50 w-full max-w-[375px] mx-auto overflow-x-hidden transition-transform duration-500 ease-out ${
-          isAnimating ? 'translate-y-0' : 'translate-y-full'
-        }`}
-        style={{
-          transform: isAnimating ? 'translateY(0)' : 'translateY(100%)',
-          willChange: 'transform',
-        }}
+        className={`fixed inset-0 z-50 w-full max-w-[375px] mx-auto overflow-x-hidden transition-opacity duration-300 ease-out ${
+          isVisible ? 'opacity-100' : 'opacity-0'
+        } ${finalSong?.id === 'song-1' ? '' : 'bg-[#111]'}`}
       >
-        {/* Top Section - Dismiss Icon and Title */}
+        {/* Background Layer for Special One (song-1) */}
+        {/* Full-screen background using special-one-all.png - shifted 100px right to show hand */}
+        {finalSong?.id === 'song-1' && (
+          <>
+            <div 
+              ref={specialOneBackgroundRef}
+              className="absolute inset-0 w-full h-full"
+              style={{
+                backgroundImage: 'url(/images/special-one-layers/special-one-all.png)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'calc(50% + 50px) center',
+                backgroundRepeat: 'no-repeat',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+            />
+            {/* Blur Animation - 7 second looping blur in/out */}
+            <BlurAnimation 
+              targetRef={specialOneBackgroundRef} 
+              blurAmount={4} 
+              loopDuration={7} 
+              autoStart={true} 
+            />
+            {/* Noise/Grain Animation Overlay - 7 second looping animation */}
+            <div 
+              className="absolute inset-0 w-full h-full special-one-noise-overlay"
+              style={{
+                zIndex: 1,
+                pointerEvents: 'none',
+              }}
+            />
+          </>
+        )}
+        
+        {/* Top Section - Close Icon and Title */}
         {isUIVisible && (
-        <div className="absolute flex items-center justify-between left-0 top-0 w-full pt-[50px] px-[16px] pb-[16px]">
-          {/* Dismiss Icon (Chevron Down - pointing down) */}
+        <div className="absolute flex items-center justify-between left-0 top-0 w-full pt-[50px] px-[16px] pb-[16px] z-10">
+          {/* Close Icon (X) */}
           <button
             onClick={handleDismiss}
             className="relative shrink-0 w-[24px] h-[24px] flex items-center justify-center"
-            aria-label="Dismiss"
+            aria-label="Close"
           >
-            <Image 
-              src="/icons/chevron-down-icon.svg" 
-              alt="Dismiss" 
-              width={24} 
-              height={24} 
-              className="w-full h-full" 
-            />
+            <svg 
+              width="24" 
+              height="24" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-white"
+            >
+              <path 
+                d="M18 6L6 18M6 6L18 18" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
 
           {/* Novel tea Text - Centered */}
@@ -240,35 +272,40 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
         )}
 
         {/* Middle Content Area - Album Art Space */}
-        <div className="absolute left-0 top-[100px] right-0 bottom-[400px] w-full flex items-center justify-center">
-          {/* Show SVG art for Dream Song (song-2) and Dream Song v2 (song-6) */}
-          {song.id === 'song-2' ? (
-            <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-              <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final.svg" />
-            </div>
-          ) : song.id === 'song-6' ? (
-            <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-              <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final-v2.svg" />
-            </div>
-          ) : (
-            // Placeholder for other songs
-            <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-              <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg">
-                {/* Placeholder - will be replaced with unique asset for each song */}
+        {finalSong && finalSong.id === 'song-6' ? (
+          /* Dream Song V2 - Full screen centered, clipped to viewport (same as Special One) */
+          <div className="absolute inset-0 w-full h-full flex items-center justify-center z-0 overflow-hidden relative">
+            <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final-v2.svg" fullScreen={true} />
+            {/* Twinkling Stars Overlay - Gentle ambient animation */}
+            <TwinklingStarsOverlay starCount={30} starSize={3} loopDuration={7} />
+          </div>
+        ) : (
+          <div className="absolute left-0 top-[100px] right-0 bottom-[400px] w-full flex items-center justify-center z-10">
+            {/* Show SVG art for Dream Song (song-2) */}
+            {finalSong && finalSong.id === 'song-2' ? (
+              <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
+                <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final.svg" />
               </div>
-            </div>
-          )}
-        </div>
+            ) : (
+              // Placeholder for other songs
+              <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
+                <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg">
+                  {/* Placeholder - will be replaced with unique asset for each song */}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bottom Section - Song Info and Controls */}
         {isUIVisible && (
-        <div className="fixed bottom-[60px] left-1/2 -translate-x-1/2 w-full max-w-[375px] px-[16px]">
+        <div className="fixed bottom-[60px] left-1/2 -translate-x-1/2 w-full max-w-[375px] px-[16px] z-10">
           {/* Song Title */}
           <p 
             className="text-white text-[24px] font-bold mb-0 leading-[28px]"
             style={{ fontFamily: 'SF Pro Display, -apple-system, BlinkMacSystemFont, sans-serif' }}
           >
-            {song.title}
+            {finalSong?.title || ''}
           </p>
 
           {/* Artist Name and Plus Icon Row */}
@@ -277,7 +314,7 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
               className="text-white text-[16px] opacity-90 leading-[20px]"
               style={{ fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif' }}
             >
-              {album?.artist || 'Artist'}
+              {finalAlbum?.artist || 'Artist'}
             </p>
             
             {/* Plus Icon in Circle */}
@@ -485,10 +522,10 @@ export default function MusicPlayerModal({ songId, onClose, onSongChange }: Musi
         </div>
 
         {/* Hidden audio element */}
-        {song && (
+        {finalSong && (
           <audio 
             ref={audioRef} 
-            src={song.audioUrl} 
+            src={finalSong.audioUrl} 
             preload="metadata"
           />
         )}

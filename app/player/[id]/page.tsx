@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { getSongById, getAlbumById, getArtist } from '@/lib/data';
 import MusicPlayer from '@/components/MusicPlayer';
 import AnimatedAlbumCover from '@/components/AnimatedAlbumCover';
+import TwinklingStarsOverlay from '@/components/TwinklingStarsOverlay';
+import BlurAnimation from '@/components/BlurAnimation';
 import { notFound } from 'next/navigation';
 
 interface PlayerPageProps {
@@ -35,6 +37,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const album = getAlbumById(song.albumId);
 
+
   // Audio playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -44,18 +47,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   // UI visibility toggle state
   const [isUIVisible, setIsUIVisible] = useState(true);
   
-  // Animation state for slide-up effect
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
   const playerRef = useRef<HTMLDivElement>(null);
-  
-  // Trigger slide-up animation on mount (slides up from bottom)
-  useEffect(() => {
-    // Small delay to ensure smooth animation
-    requestAnimationFrame(() => {
-      setIsAnimating(true);
-    });
-  }, []);
+  const specialOneBackgroundRef = useRef<HTMLDivElement>(null);
 
   // Initialize audio element
   useEffect(() => {
@@ -121,25 +114,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
   const remainingTime = Math.max(0, duration - currentTime);
 
-  // Handle dismiss - navigate to home screen with slide-down animation
+  // Handle dismiss - navigate to home screen
   const handleDismiss = () => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    // Set exiting state to keep backdrop visible during animation
-    setIsExiting(true);
-    // Trigger slide-down animation before navigating (slides back down to bottom)
-    setIsAnimating(false);
-    
-    // Wait for CSS transition to complete before navigating
-    // Use a longer delay to ensure animation fully completes and prevents flicker
-    const animationDuration = 500; // Match CSS transition duration
-    const delay = animationDuration + 100; // Add buffer for smooth transition
-    
-    setTimeout(() => {
-      // Use router.replace to avoid adding to history and ensure smooth transition
-      router.replace('/');
-    }, delay);
+    // Navigate back to home
+    router.replace('/');
   };
   
   // Toggle UI visibility
@@ -183,47 +164,78 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-40" style={{ willChange: 'transform', pointerEvents: 'auto' }}>
-      {/* Backdrop overlay - fades out smoothly with player animation */}
-      <div 
-        className={`fixed inset-0 bg-black transition-opacity duration-500 ease-out ${
-          isAnimating ? 'opacity-50' : isExiting ? 'opacity-50' : 'opacity-0'
-        }`}
-        onClick={handleDismiss}
-        style={{
-          pointerEvents: isAnimating || isExiting ? 'auto' : 'none',
-          willChange: 'opacity',
-          transition: 'opacity 500ms ease-out',
-        }}
-      />
+    <div className="fixed inset-0 z-40">
+      {/* Backdrop overlay - not needed for full-screen page */}
       
-      {/* Player page - slides up from bottom */}
+      {/* Player page - full screen */}
       <div 
         ref={playerRef}
-        className={`fixed inset-0 bg-[#111] z-50 w-full max-w-[375px] mx-auto overflow-x-hidden transition-transform duration-500 ease-out ${
-          isAnimating ? 'translate-y-0' : 'translate-y-full'
+        className={`fixed inset-0 z-50 w-full max-w-[375px] mx-auto overflow-x-hidden ${
+          song.id === 'song-1' ? '' : 'bg-[#111]'
         }`}
         style={{
-          transform: isAnimating ? 'translateY(0)' : 'translateY(100%)',
-          willChange: 'transform',
+          position: 'relative', // Ensure background layers can position relative to this
         }}
       >
-      {/* Top Section - Dismiss Icon and Title */}
+      {/* Background Layer for Special One (song-1) */}
+      {/* Full-screen background using special-one-all.png - shifted 100px right to show hand */}
+      {song.id === 'song-1' && (
+        <>
+          <div 
+            ref={specialOneBackgroundRef}
+            className="absolute inset-0 w-full h-full"
+            style={{
+              backgroundImage: 'url(/images/special-one-layers/special-one-all.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'calc(50% + 50px) center',
+              backgroundRepeat: 'no-repeat',
+              zIndex: 0,
+              pointerEvents: 'none',
+            }}
+          />
+          {/* Blur Animation - 7 second looping blur in/out */}
+          <BlurAnimation 
+            targetRef={specialOneBackgroundRef} 
+            blurAmount={4} 
+            loopDuration={7} 
+            autoStart={true} 
+          />
+          {/* Noise/Grain Animation Overlay - 7 second looping animation */}
+          <div 
+            className="absolute inset-0 w-full h-full special-one-noise-overlay"
+            style={{
+              zIndex: 1,
+              pointerEvents: 'none',
+            }}
+          />
+        </>
+      )}
+      
+      {/* Top Section - Close Icon and Title */}
       {isUIVisible && (
-      <div className="absolute flex items-center justify-between left-0 top-0 w-full pt-[50px] px-[16px] pb-[16px]">
-        {/* Dismiss Icon (Chevron Down - pointing down) */}
+      <div className="absolute flex items-center justify-between left-0 top-0 w-full pt-[50px] px-[16px] pb-[16px] z-10">
+        {/* Close Icon (X) */}
         <button
           onClick={handleDismiss}
           className="relative shrink-0 w-[24px] h-[24px] flex items-center justify-center"
-          aria-label="Dismiss"
+          aria-label="Close"
         >
-          <Image 
-            src="/icons/chevron-down-icon.svg" 
-            alt="Dismiss" 
-            width={24} 
-            height={24} 
-            className="w-full h-full" 
-          />
+          <svg 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-white"
+          >
+            <path 
+              d="M18 6L6 18M6 6L18 18" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
 
         {/* Novel tea Text - Centered */}
@@ -240,31 +252,36 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       )}
 
       {/* Middle Content Area - Album Art Space */}
-      {/* This fills the space between top section and bottom controls */}
-      <div className="absolute left-0 top-[100px] right-0 bottom-[400px] w-full flex items-center justify-center">
-        {/* Show SVG art for Dream Song (song-2) and Dream Song v2 (song-6) */}
-        {song.id === 'song-2' ? (
-          <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-            <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final.svg" />
-          </div>
-        ) : song.id === 'song-6' ? (
-          <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-            <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final-v2.svg" />
-          </div>
-        ) : (
-          // Placeholder for other songs - each will have their own unique asset
-          <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
-            <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg">
-              {/* Placeholder - will be replaced with unique asset for each song */}
+      {song.id === 'song-6' ? (
+        /* Dream Song V2 - Full screen centered, clipped to viewport (same as Special One) */
+        <div className="absolute inset-0 w-full h-full flex items-center justify-center z-0 overflow-hidden relative">
+          <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final-v2.svg" fullScreen={true} />
+          {/* Twinkling Stars Overlay - Gentle ambient animation */}
+          <TwinklingStarsOverlay starCount={30} starSize={3} loopDuration={7} />
+        </div>
+      ) : (
+        /* This fills the space between top section and bottom controls for other songs */
+        <div className="absolute left-0 top-[100px] right-0 bottom-[400px] w-full flex items-center justify-center z-10">
+          {/* Show SVG art for Dream Song (song-2) */}
+          {song.id === 'song-2' ? (
+            <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
+              <AnimatedAlbumCover isPlaying={isPlaying} svgPath="/assets/novel-tea-final.svg" />
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            // Placeholder for other songs - each will have their own unique asset
+            <div className="relative w-full flex items-center justify-center px-4" style={{ maxWidth: '375px' }}>
+              <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg">
+                {/* Placeholder - will be replaced with unique asset for each song */}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom Section - Song Info and Controls */}
       {/* Positioned above the gesture bar with proper spacing */}
       {isUIVisible && (
-      <div className="fixed bottom-[60px] left-1/2 -translate-x-1/2 w-full max-w-[375px] px-[16px]">
+      <div className="fixed bottom-[60px] left-1/2 -translate-x-1/2 w-full max-w-[375px] px-[16px] z-10">
         {/* Song Title */}
         <p 
           className="text-white text-[24px] font-bold mb-0 leading-[28px]"

@@ -44,3 +44,44 @@ body {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
+
+/* Special One Noise/Grain Animation Overlay */
+.special-one-noise-overlay {
+  /* Brown/tan color base - more intense */
+  background-color: rgba(139, 90, 43, 0.25);
+  /* Create noise pattern using SVG turbulence filter - more intense noise */
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.6'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  /* Start more visible but still subtle */
+  opacity: 0.2;
+  /* Animate to get progressively noisier - much more exaggerated */
+  animation: noiseProgression 7s ease-in-out infinite;
+  /* Use overlay blend mode for natural integration */
+  mix-blend-mode: overlay;
+  /* Ensure animation starts immediately on page load */
+  animation-delay: 0s;
+}
+
+@keyframes noiseProgression {
+  0% {
+    opacity: 0.2;
+    filter: contrast(1.2) brightness(0.95);
+  }
+  25% {
+    opacity: 0.35;
+    filter: contrast(1.4) brightness(0.9);
+  }
+  50% {
+    opacity: 0.5;
+    filter: contrast(1.6) brightness(0.85);
+  }
+  75% {
+    opacity: 0.65;
+    filter: contrast(1.8) brightness(0.8);
+  }
+  100% {
+    opacity: 0.75;
+    filter: contrast(2) brightness(0.75);
+  }
+}

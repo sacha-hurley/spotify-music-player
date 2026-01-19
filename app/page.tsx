@@ -19,6 +19,7 @@ export default function Home() {
   const artistData = getArtist();
   const firstSong = getFirstSong();
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Format number with commas
   const formatNumber = (num: number): string => {
@@ -29,22 +30,30 @@ export default function Home() {
   const handlePlayClick = () => {
     if (firstSong) {
       setSelectedSongId(firstSong.id);
+      setIsModalVisible(true);
     }
   };
 
   // Handle song click - open modal with selected song
   const handleSongClick = (songId: string) => {
     setSelectedSongId(songId);
+    setIsModalVisible(true);
   };
 
   // Handle modal close
   const handleCloseModal = () => {
-    setSelectedSongId(null);
+    setIsModalVisible(false);
+    // Small delay to allow fade-out animation to complete
+    setTimeout(() => {
+      setSelectedSongId(null);
+    }, 300);
   };
 
   // Handle song change in modal (for previous/next buttons)
   const handleSongChange = (songId: string) => {
     setSelectedSongId(songId);
+    // Keep modal visible when changing songs
+    setIsModalVisible(true);
   };
 
   return (
@@ -151,7 +160,18 @@ export default function Home() {
             {/* Song Container */}
             <div className="absolute flex gap-[12px] items-center left-[23px] top-0">
               {/* Cover Art */}
-              {song.id === 'song-2' || song.id === 'song-6' ? (
+              {song.id === 'song-1' ? (
+                // Special One - Use special-one-all.png
+                <div className="relative shrink-0 w-[48px] h-[48px] rounded overflow-hidden">
+                  <Image 
+                    src="/images/special-one-layers/special-one-all.png" 
+                    alt="" 
+                    width={48} 
+                    height={48} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : song.id === 'song-2' || song.id === 'song-6' ? (
                 // Dream Song and Dream Song v2 - Use SVG with aspect ratio maintained
                 <div className="relative shrink-0 w-[48px] h-[48px] rounded overflow-hidden">
                   <Image 
@@ -259,8 +279,15 @@ export default function Home() {
         <div className="bg-white h-[5px] rounded-[5px] shrink-0 w-[134px]" />
       </div>
 
-      {/* Music Player Modal */}
-      <MusicPlayerModal songId={selectedSongId} onClose={handleCloseModal} onSongChange={handleSongChange} />
+      {/* Music Player Modal - Always render if songId exists, control visibility separately */}
+      {selectedSongId && (
+        <MusicPlayerModal 
+          songId={selectedSongId} 
+          isVisible={isModalVisible}
+          onClose={handleCloseModal} 
+          onSongChange={handleSongChange} 
+        />
+      )}
     </div>
   );
 }
